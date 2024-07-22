@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chembl Results</title>
+</head>
+<body>
+    <h1>Chembl Results</h1>
+    <table border="1">
+        <tr>
+            <th>Chembl ID</th>
+            <th>Max Phase</th>
+        </tr>
+        {% for item in data %}
+        <tr>
+            <td>{{ item.chembl_id }}</td>
+            <td>{{ item.max_phase }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

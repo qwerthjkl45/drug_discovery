@@ -1,0 +1,25 @@
+# docker-compose.yml
+version: "3"
+
+services:
+  fastapi-app:
+    container_name: fastapi-app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    depends_on:
+      - sqlite-db  
+    volumes:
+      - "./app:/app"
+      - "/hdd/raid1/ann/chembl/data/chembl33/chembl_33/chembl_33_sqlite:/chembl_33"
+
+  sqlite-db:
+    image: keinos/sqlite3
+    container_name: sqlite-db
+    volumes:
+      - "./sqlite_workspace/:/workspace"
+    working_dir: "/workspace"
+    stdin_open: true
+    tty: true

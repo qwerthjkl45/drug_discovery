@@ -1,0 +1,462 @@
+<html>
+<head>
+    <title>Compound Search Results</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css?family=Roboto:400,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"></link>
+    <!-- Load the RDKit JS file -->
+    <script src="https://unpkg.com/@rdkit/rdkit/dist/RDKit_minimal.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+
+    
+    <!-- Plotly.js -->
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-/bQdsTh/da6pkI1MST/rWKFNjaCP5gBSY4sEBT38Q/9RBh9AH40zEOg7Hlq2THRZ" crossorigin="anonymous"></script>
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #121212;
+            color: #fff;
+        }
+        .card {
+            background-color: #1e1e1e;
+            border: 2px solid #07e3f2; /* Example border color - a shade of blue */
+            border-radius: 10px;
+        }
+        .card-header {
+            background-color: #07e3f2;
+            color: #fff;
+            border: none;
+        }
+        .card-body {
+            color: #fff;
+        }
+        .search-section {
+            padding: 20px;
+        }
+        .search-results {
+            margin-top: 20px;
+        }
+        .compound-section {
+            margin-top: 20px;
+        }
+        .compound-table {
+            width: 100%;
+        }
+        .compound-table th, .compound-table td {
+            border: 1px solid #fff;
+            padding: 10px;
+            color: #fff;
+        }
+        .compound-table th {
+            background-color: #5bbfc7;
+        }
+        .compound-table td {
+            background-color: #1e1e1e;
+        }
+        .image-placeholder {
+            width: 100%;
+            height: auto;
+        }
+        .btn-search {
+            background-color: #07e3f2;
+            color: #fff;
+            border: none;
+        }
+        .btn-search:hover {
+            background-color: #5bbfc7;
+        }
+        input#pdb_id {
+            margin-bottom: 20px; /* Adjust the space as needed */
+        }
+        .autocomplete-items {
+            position: absolute;
+            top: 100%;
+            border: 1px solid #d4d4d4;
+            background-color: #fff;
+            z-index: 99;
+        }
+
+        .autocomplete-items div {   
+            padding: 10px;
+            cursor: pointer;
+        }
+
+        .autocomplete-items div:hover {
+            background-color: #e9e9e9;
+        }
+
+    </style>
+    <script>
+        var globalRDKitModule = null;  // Global variable
+
+        initRDKitModule().then(function (instance) {
+            globalRDKitModule = instance;
+            console.log("version: " + globalRDKitModule.version());
+        });
+
+        var autocompleteOptions = [];
+        
+        function loadCSV(filePath) {
+            Papa.parse(filePath, {
+                download: true,
+                header: true,  // Set to false if your CSV doesn't have a header
+                complete: function(results) {
+                    autocompleteOptions = results.data.map(row => row.pdb_id); // Adjust 'pdb_id' based on your CSV column name
+                }
+            });
+        }
+        // Call this function on page load or when appropriate
+        loadCSV('/js_code/pdb_id.csv');  // Update the path to your CSV file
+        
+
+    </script>
+    
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="card search-section">
+                    <div class="card-header">
+                        Attribute
+                    </div>
+                    <div class="card-body">
+                        <form id="searchForm">
+                            <select class="form-select mb-3" name="attribute">
+                                <option selected>Gene Symbol</option>
+                            </select>
+                            <input type="text" id="pdb_id" name="pdb_id" required><br>
+                            <div id="autocompleteResults" class="autocomplete-items"></div>
+                            <button type="button" class="btn btn-search" onclick="submitSearch()">Search</button> 
+                        </form>
+                    </div>
+                </div>
+                <div class="card compound-section" id="molecule_hover_img">
+                    <div class="card-body">
+                        <img src="/js_code/example_png/test_00.png" alt="Molecular structure placeholder image" class="image-placeholder mb-3">
+                        <p><b>Molecule type:</b> Small molecule</p>
+                        <p><b>Therapeutic application: </b>N</p>
+                        <p><b>Chirality: unknown</b></p>
+                        <p><b>First in class: </b>preclinical</p>
+                        <p><b>Activities: </b>MAP kinase p38 alpha: IC50 > 1uM</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-9">
+                <div class="card search-results">
+                    <div class="card-header">
+                        Search Results:
+                    </div>
+                    <div class="card-body">
+                        <div id="spinner" class="d-none justify-content-center">
+                            <div class="spinner-border text-light" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                        <p id="resultsText" class="d-flex">The query returned {{ data }}</p>
+                        <div id="myDiv"></div>  
+                        <script>
+                            console.log(window.location.pathname)
+                        </script>
+                        <script src="/js_code/draw_plot.js"></script>
+                    </div>
+                </div>
+                <div class="card compound-section">
+                    <div class="card-header">
+                        Top 10 Recommended Compounds
+                    </div>
+                    <div class="card-body">
+                        <table class="compound-table">
+                            <thead>
+                                <tr>
+                                    <th>Chembl ID</th>
+                                    <th>First in Class</th>
+                                    <th>Activities</th>
+                                    <th>mol</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td id="cmpd1">CHEMBL368350</td>
+                                    <td id="cmpd1_f">preclinical</td>
+                                    <td id="cmpd1_a">MAP kinase p38 alpha: IC50 > 1uM</td>
+                                    <td><img id="cmpd1_i" src="/js_code/example_png/test_00.png" height="100px" width="auto"></td>
+                                </tr>
+                                <tr>
+                                    <td id="cmpd2">CHEMBL368351</td>
+                                    <td id="cmpd2_f">preclinical</td>
+                                    <td id="cmpd2_a">Cyclin-dependent kinase 1: IC50 = 0.041uM</td>
+                                    <td><img id="cmpd2_i" src="/js_code/example_png/test_01.png" height="100px" width="auto"></td>
+                                </tr>
+                                <tr>
+                                    <td id="cmpd3">CHEMBL368352</td>
+                                    <td id="cmpd3_f">preclinical</td>
+                                    <td id="cmpd3_a">XXX</td>
+                                    <td><img id="cmpd3_i" src="/js_code/example_png/test_02.png" height="100px" width="auto"></td>
+                                </tr>
+                                <tr>
+                                    <td id="cmpd4">CHEMBL368353</td>
+                                    <td id="cmpd4_f">preclinical</td>
+                                    <td id="cmpd4_a">Vasopressin V1 receptor: IC50 = 20nM</td>
+                                    <td><img id="cmpd4_i" src="/js_code/example_png/test_03.png" height="100px" width="auto"></td>
+                                </tr>
+                                <tr>
+                                    <td id="cmpd5">CHEMBL368546</td>
+                                    <td id="cmpd5_f">preclinical</td>
+                                    <td id="cmpd5_a">Cyclooxygenase-1: IC50 = 1.02uM</td>
+                                    <td><img id="cmpd5_i" src="/js_code/example_png/test_04.png" height="100px" width="auto"></td>
+                                </tr>
+                                <tr>
+                                    <td id="cmpd6">CHEMBL368807</td>
+                                    <td id="cmpd6_f">preclinical</td>
+                                    <td id="cmpd6_a">Vanilloid receptor: IC50 = 64nM</td>
+                                    <td><img id="cmpd6_i" src="/js_code/example_png/test_05.png" height="100px" width="auto"></td>
+                                </tr>
+                                <tr>
+                                    <td id="cmpd7">CHEMBL368810</td>
+                                    <td id="cmpd7_f">preclinical</td>
+                                    <td id="cmpd7_a">XXX</td>
+                                    <td><img id="cmpd7_i" src="/js_code/example_png/test_06.png" height="100px" width="auto"></td>
+                                </tr>
+                                <tr>
+                                    <td id="cmpd8">CHEMBL3342898</td>
+                                    <td id="cmpd8_f">preclinical</td>
+                                    <td id="cmpd8_a">Steroid 5-alpha-reductase 1: IC50 = 250uM</td>
+                                    <td><img id="cmpd8_i" src="/js_code/example_png/test_07.png" height="100px" width="auto"></td>
+                                </tr>
+                                <tr>
+                                    <td id="cmpd9">CHEMBL369086</td>
+                                    <td id="cmpd9_f">preclinical</td>
+                                    <td id="cmpd9_a">Coagulation factor X: IC50 = 4nM</td>
+                                    <td><img id="cmpd9_i" src="/js_code/example_png/test_08.png" height="100px" width="auto"></td>
+                                </tr>
+                                <tr>
+                                    <td id="cmpd10">CHEMBL369087</td>
+                                    <td id="cmpd10_f">preclinical</td>
+                                    <td id="cmpd10_a">atty acid synthase: IC50 = 2.8ug ml-1</td>
+                                    <td><img id="cmpd10_i" src="/js_code/example_png/test_09.png" height="100px" width="auto"></td>
+                                </tr>
+                                <!-- Repeat for each compound -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+
+        document.addEventListener('DOMContentLoaded', function() {
+        console.log('!!!!')
+        var input = document.getElementById('pdb_id');
+        var resultsContainer = document.createElement('div');
+        input.parentNode.appendChild(resultsContainer);
+        resultsContainer.setAttribute('class', 'autocomplete-results');
+
+        input.addEventListener('input', function() {
+            var inputValue = this.value;
+            resultsContainer.innerHTML = '';
+
+            if (!inputValue) return false;
+
+            autocompleteOptions.forEach(function(item) {
+                if (item.toLowerCase().startsWith(inputValue.toLowerCase())) {
+                    var suggestionDiv = document.createElement('div');
+                    suggestionDiv.innerHTML = item;
+                    suggestionDiv.addEventListener('click', function() {
+                        input.value = this.innerText;
+                        resultsContainer.innerHTML = '';
+                    });
+                    resultsContainer.appendChild(suggestionDiv);
+                }
+            });
+        });
+
+        document.addEventListener('click', function(e) {
+            if (e.target !== input) {
+                resultsContainer.innerHTML = '';
+            }
+        });
+    });
+
+
+
+        function submitSearch() {
+            const formData = new FormData(document.getElementById('searchForm'));
+            toggleSpinner(true); // Show spinner
+            fetch('/ligand_submit/', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Process and display the data
+                document.getElementById('resultsText').innerText = 'The query returned: ' + data.data;
+                update_chart(data.top_10_cmpds);
+                toggleSpinner(false); // Hide spinner
+                draw_plotly(data.plotly_results)
+                // animation
+                // random x, y
+                // targer - random + step 
+                //
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                toggleSpinner(false); // Hide spinner even on error
+            });
+        }
+    
+        function toggleSpinner(show) {
+            const spinner = document.getElementById('spinner');
+            const resultsText = document.getElementById('resultsText');
+            
+
+
+            if (show) {
+                spinner.classList.remove('d-none');
+                spinner.classList.add('d-flex');
+                resultsText.classList.remove('d-flex');
+                resultsText.classList.add('d-none');
+            } else {
+                spinner.classList.remove('d-flex');
+                spinner.classList.add('d-none');
+                resultsText.classList.remove('d-none');
+                resultsText.classList.add('d-flex');
+            }
+            //spinner.style.display = show ? 'flex' : 'none';
+            //sresultsText.style.display = show ? 'none' : 'block';
+        }
+
+        function getColorByLength(length, total_len) {
+            // Define a range of colors
+            const colors = ['#ffffd9', '#edf8b1', '#c7e9b4', '#7fcdbb', '#41b6c4', '#1d91c0', '#225da8', '#0d2c84'];
+            if (length === (total_len-1)) {
+                return '#DE846A';
+            } else {
+                // Map the length to an index within the colors array
+                return colors[length % colors.length];
+            }
+        }
+
+        function update_chart(top_10_cmpds) {
+            for (let i = 1; i <= 10; i++){
+                var cmpd_info_text = 'cmpd' + i
+                console.log(cmpd_info_text)
+                var cmpd_info = document.getElementById(cmpd_info_text)
+                cmpd_info.innerText = top_10_cmpds[i-1][0]
+                var cmpd_f_info = document.getElementById(cmpd_info_text+ "_f")
+                cmpd_f_info.innerText = top_10_cmpds[i-1][1]
+                var cmpd_a_info = document.getElementById(cmpd_info_text+ "_a")
+                cmpd_a_info.innerText = top_10_cmpds[i-1][2]
+                console.log(top_10_cmpds)
+                var cmpd_i_info = document.getElementById(cmpd_info_text+ "_i")
+                var mol = globalRDKitModule.get_mol( top_10_cmpds[i-1][3]);
+                var svg = mol.get_svg();
+                var encoded = encodeURIComponent(svg)
+                .replace(/'/g,"%27")
+                .replace(/"/g,"%22");
+                cmpd_i_info.src = "data:image/svg+xml," + encoded;
+                cmpd_i_info.style.height = "100px";
+                cmpd_i_info.style.width = "auto";
+            }
+
+        }
+
+
+        function draw_plotly(plotly_results) {
+            var mol_img = document.getElementById('molecule_hover_img')
+            var myPlot = document.getElementById('myDiv'),
+                hoverInfo = document.getElementById('hoverinfo'),
+                d3 = Plotly.d3,
+                data = [],
+                layout = { 
+                    hovermode:'closest',
+                    title:'Hover on Points',
+                    paper_bgcolor: '#1e1e1e', // Background color of the outer canvas
+                    plot_bgcolor: '#1e1e1e', // Background color of the plotting area
+                    xaxis: {
+                        color: '#fff', // X-axis text color
+                        gridcolor: '#444', // X-axis grid line color
+                    },
+                    yaxis: {
+                        color: '#fff', // Y-axis text color
+                        gridcolor: '#444', // Y-axis grid line color
+                    },
+                    legend: {
+                        font: {
+                            color: '#fff' // Legend text color
+                        }
+                    },
+                };
+                for (let i = 0; i < plotly_results.length; i++) {
+                    data.push({ 
+                        x: plotly_results[i].dots_x, 
+                        y: plotly_results[i].dots_y, 
+                        customdata: plotly_results[i].properties,
+                        text: plotly_results[i].chembl_id,
+                        type: 'scatter', 
+                        name: `Cluster ${i}`, // Using template literal for string interpolation
+                        mode: 'markers',
+                        marker: {
+                            color: getColorByLength(i, plotly_results.length)
+                        },
+                        hovertemplate:'<b>ID:</b> %{customdata[0]}' +
+                        '<br><b>X</b>: %{x}' +
+                        '<br><b>new value</b>: %{customdata[1]}<br>'
+                    });
+                };
+            Plotly.newPlot('myDiv', data, layout, {template:'plotly_dark'},{showSendToCloud: true});
+
+           
+            myPlot.on('plotly_hover', function(data){
+                var mol_img = document.getElementById('molecule_hover_img')
+                var smiles = data.points[0].customdata[1];
+                var molecule_type = data.points[0].customdata[2];
+                var therapeutic_flag = data.points[0].customdata[3];
+                var chirality = data.points[0].customdata[4];
+                var first_in_class = data.points[0].customdata[5];
+                var withdrawn_flags = data.points[0].customdata[6];
+                var activities = data.points[0].customdata[7];
+
+                var mol = globalRDKitModule.get_mol(smiles);
+                var svg = mol.get_svg();
+
+                // Parse the SVG and set the width and height
+                var parser = new DOMParser();
+                var svgDoc = parser.parseFromString(svg, "image/svg+xml");
+                var svgElement = svgDoc.getElementsByTagName('svg')[0];
+
+                // Set desired width and height
+                svgElement.setAttribute("width", "200px");   // Set your desired width
+                svgElement.setAttribute("height", "100px");  // Set your desired height
+
+                // Serialize the modified SVG back to string
+                var serializer = new XMLSerializer();
+                var modifiedSvgString = serializer.serializeToString(svgElement);
+
+                mol_img.innerHTML = "<div id='drawing' style='display: flex; align-items: center; justify-content: center; height: 100%;'>" 
+                    + modifiedSvgString +
+                    "</div><p style='color: white; tmargin: 0; padding: 10px;'><b>Molecule Type: </b>" 
+                        + molecule_type+ "</p>" +    
+                    "</div><p style='color: white; margin: 0; padding: 10px;'><b>Therapeutic application: </b>" 
+                        + therapeutic_flag+ "</p>" +
+                    "</div><p style='color: white; margin: 0; padding: 10px;'><b>Chirality: </b>" 
+                        + chirality+ "</p>" +
+                    "</div><p style='color: white; margin: 0; padding: 10px;'><b>First in class: </b>" 
+                        + first_in_class+ "</p>" +
+                    "</div><p style='color: white; margin: 0; padding: 10px;'><b>Activities: </b>" 
+                        + activities+ "</p>";
+
+                //mol_img.innerHTML = "<div id='drawing'>" + modifiedSvgString +
+                //    "</div><p style='color: white;'>TYPE: XXXX</p>";
+            });
+            
+            
+            
+        }
+    </script>    
+</body>
+</html>
+
